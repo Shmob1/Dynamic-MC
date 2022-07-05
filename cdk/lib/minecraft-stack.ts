@@ -140,6 +140,11 @@ export class MinecraftStack extends Stack {
             hostPort: minecraftServerConfig.port,
             protocol: minecraftServerConfig.protocol,
           },
+          {
+            containerPort: 24454,
+            hostPort: 24454,
+            protocol: Protocol.UDP,
+          },
         ],
         environment: config.minecraftImageEnv,
         essential: false,
@@ -171,6 +176,10 @@ export class MinecraftStack extends Stack {
     serviceSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(),
       minecraftServerConfig.ingressRulePort
+    );
+    serviceSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.udp(24454),
     );
 
     const minecraftServerService = new ecs.FargateService(
