@@ -1,6 +1,7 @@
 import os
+import json
+from urllib.request import Request, urlopen
 import boto3
-from botocore.vendored import requests
 
 DEFAULT_REGION = "us-west-2"
 DEFAULT_CLUSTER = "minecraft"
@@ -13,6 +14,20 @@ DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", None)
 
 if REGION is None or CLUSTER is None or SERVICE is None or DISCORD_WEBHOOK_URL is None:
     raise ValueError("Missing environment variables")
+
+# Notify Discord
+def discord_post():
+    req = Request(
+        DISCORD_WEBHOOK_URL,
+        json.dumps({"content": "Server has been requested"}).encode("utf-8"),
+    )
+    req.add_header("Content-Type", "application/json")
+    req.add_header(
+        "User-Agent", "Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11"
+    )
+
+    response = urlopen(req)
+    print(response.read())
 
 
 def lambda_handler(event, context):
@@ -36,12 +51,4 @@ def lambda_handler(event, context):
     else:
         print("desiredCount already at 1")
 
-    # Notify Discord
-    response = requests.post(
-        DISCORD_WEBHOOK_URL,
-        json={"content": "Server has been requested"},
-        headers={"Content-Type": "application/json"},
-    )
-    print(f"Discord response: {response.status_code}")
-    if response.status_code != 200:
-        print(f"Discord error response: {response.text}")
+    discord_post()
