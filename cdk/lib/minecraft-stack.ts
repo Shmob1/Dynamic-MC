@@ -17,6 +17,7 @@ import { constants } from './constants';
 import { SSMParameterReader } from './ssm-parameter-reader';
 import { StackConfig } from './types';
 import { getMinecraftServerConfig, isDockerInstalled } from './util';
+import { Protocol } from 'aws-cdk-lib/lib/aws-ecs';
 
 interface MinecraftStackProps extends StackProps {
   config: Readonly<StackConfig>;
@@ -78,6 +79,18 @@ export class MinecraftStack extends Stack {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       description: 'Minecraft ECS task role',
     });
+
+    ecsTaskRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      resources: ['*'],
+      actions: [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel"
+    ]
+    })
+  );
 
     efsReadWriteDataPolicy.attachToRole(ecsTaskRole);
 
