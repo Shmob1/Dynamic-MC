@@ -133,7 +133,13 @@ export class MinecraftStack extends Stack {
       'ServerContainer',
       {
         containerName: constants.MC_SERVER_CONTAINER_NAME,
-        image: ecs.ContainerImage.fromRegistry(minecraftServerConfig.image),
+        image: isDockerInstalled()
+        ? ecs.ContainerImage.fromAsset(
+            path.resolve(__dirname, '../../docker-minecraft-server/')
+          )
+        : ecs.ContainerImage.fromRegistry(
+            'shmob/docker-minecraft-server'
+          ),
         portMappings: [
           {
             containerPort: minecraftServerConfig.port,
