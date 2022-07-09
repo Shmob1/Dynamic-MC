@@ -12,14 +12,16 @@ CLUSTER = os.environ.get("CLUSTER", DEFAULT_CLUSTER)
 SERVICE = os.environ.get("SERVICE", DEFAULT_SERVICE)
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", None)
 
-if REGION is None or CLUSTER is None or SERVICE is None or DISCORD_WEBHOOK_URL is None:
+if REGION is None or CLUSTER is None or SERVICE is None:
     raise ValueError("Missing environment variables")
 
 # Notify Discord
 def discord_post():
+    if DISCORD_WEBHOOK_URL is None:
+        raise ValueError("Missing DISCORD_WEBHOOK_URL")
     req = Request(
         DISCORD_WEBHOOK_URL,
-        json.dumps({"content": "Server has been requested"}).encode("utf-8"),
+        json.dumps({"content": "Server requested"}).encode("utf-8"),
     )
     req.add_header("Content-Type", "application/json")
     req.add_header(
