@@ -267,6 +267,7 @@ export class MinecraftStack extends Stack {
           TWILIOAUTH: config.twilio.authCode,
           STARTUPMIN: config.startupMinutes,
           SHUTDOWNMIN: config.shutdownMinutes,
+          WEBHOOKURL: config.webhookUrl,
         },
         logging: config.debug
           ? new ecs.AwsLogDriver({

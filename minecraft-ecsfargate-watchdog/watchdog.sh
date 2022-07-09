@@ -11,7 +11,7 @@
 
 function send_notification ()
 {
-  [ "$1" = "startup" ] && MESSAGETEXT="Minecraft container online"
+  [ "$1" = "startup" ] && MESSAGETEXT="Minecraft Server online"
   [ "$1" = "shutdown" ] && MESSAGETEXT="Shutting down Minecraft Server"
   [ "$1" = "failed" ] && MESSAGETEXT="Failed to start Minecraft Server"
 
@@ -26,9 +26,8 @@ function send_notification ()
   aws sns publish --topic-arn "$SNSTOPIC" --message "$MESSAGETEXT"
 
   ## Webhook Option
-  if [[${WEBHOOK_NOTIFY}]]; then 
-    curl --silent -XPOST -H 'Content-Type: application/json' -d '{"content":"'"$MESSAGETEXT"'"}' "${WEBHOOK_NOTIFY_}"
-  fi
+  [ -n "$WEBHOOKURL" ] && \
+    curl --silent -XPOST -H 'Content-Type: application/json' -d '{"content":"'"$MESSAGETEXT"'"}' "$WEBHOOKURL"
 
 }
 
