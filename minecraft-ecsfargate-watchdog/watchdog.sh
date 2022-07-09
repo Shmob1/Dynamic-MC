@@ -8,6 +8,7 @@
 [ -n "$DNSZONE" ] || { echo "DNSZONE env variable must be set to the Route53 Hosted Zone ID" ; exit 1; }
 [ -n "$STARTUPMIN" ] || { echo "STARTUPMIN env variable not set, defaulting to a 10 minute startup wait" ; STARTUPMIN=10; }
 [ -n "$SHUTDOWNMIN" ] || { echo "SHUTDOWNMIN env variable not set, defaulting to a 20 minute shutdown wait" ; SHUTDOWNMIN=20; }
+[ -n "$FAILEDSTART"] || { echo "FAILEDSTART env variable not set, defaulting to a 5 minute wait" ; FAILEDSTART=360; }
 
 function send_notification ()
 {
@@ -31,11 +32,38 @@ function send_notification ()
 
 }
 
-
+function update_dns ()
+{
+## update public dns record
+echo "Updating DNS record for $SERVERNAME to $1"
+## prepare json file
+cat << EOF >> minecraft-dns.json
+{
+  "Comment": "Fargate Public IP change for Minecraft Server",
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "$SERVERNAME",
+        "Type": "A",
+        "TTL": 30,
+        "ResourceRecords": [
+          {
+            "Value": "$1"
+          }
+        ]
+      }
+    }
+  ]
+}
+EOF
+aws route53 change-resource-record-sets --hosted-zone-id $DNSZONE --change-batch file://minecraft-dns.json
+}
 
 function zero_service ()
 {
-  send_notification shutdown
+  update_dns 0.0.0.0
+  send_notification $1
   echo Setting desired task count to zero.
   aws ecs update-service --cluster $CLUSTER --service $SERVICE --desired-count 0
   exit 0
@@ -45,7 +73,7 @@ function sigterm ()
 {
   ## upon SIGTERM set the service desired count to zero
   echo "Received SIGTERM, terminating task..."
-  zero_service
+  zero_service shutdown
 }
 trap sigterm SIGTERM
 
@@ -61,30 +89,7 @@ echo I believe our eni is $ENI
 PUBLICIP=$(aws ec2 describe-network-interfaces --network-interface-ids $ENI --query 'NetworkInterfaces[0].Association.PublicIp' --output text)
 echo "I believe our public IP address is $PUBLICIP"
 
-## update public dns record
-echo "Updating DNS record for $SERVERNAME to $PUBLICIP"
-## prepare json file
-cat << EOF >> minecraft-dns.json
-{
-  "Comment": "Fargate Public IP change for Minecraft Server",
-  "Changes": [
-    {
-      "Action": "UPSERT",
-      "ResourceRecordSet": {
-        "Name": "$SERVERNAME",
-        "Type": "A",
-        "TTL": 30,
-        "ResourceRecords": [
-          {
-            "Value": "$PUBLICIP"
-          }
-        ]
-      }
-    }
-  ]
-}
-EOF
-aws route53 change-resource-record-sets --hosted-zone-id $DNSZONE --change-batch file://minecraft-dns.json
+update_dns $PUBLICIP
 
 ## detemine java or bedrock based on listening port
 echo "Determining Minecraft edition based on listening port..."
@@ -96,11 +101,10 @@ do
   netstat -aun | grep :19132 && EDITION="bedrock" && break
   sleep 1
   COUNTER=$(($COUNTER + 1))
-  if [ $COUNTER -gt $STARTUPMIN ] ## server has not been detected as starting within 10 minutes
+  if [ $COUNTER -gt $FAILEDSTART ] ## server has not been detected as starting within 5 minutes
   then
-    echo 10 minutes elapsed without a minecraft server listening, terminating.
-    send_notification failed
-    zero_service
+    echo $FAILEDSTART seconds elapsed without a minecraft server listening, terminating.
+    zero_service failed
   fi
 done
 echo "Detected $EDITION edition"
@@ -153,7 +157,7 @@ do
   if [ $COUNTER -gt $STARTUPMIN ] ## no one has connected in at least these many minutes
   then
     echo $STARTUPMIN minutes exceeded without a connection, terminating.
-    zero_service
+    zero_service shutdown
   fi
   ## only doing short sleeps so that we can catch a SIGTERM if needed
   for i in $(seq 1 59) ; do sleep 1; done
@@ -178,4 +182,4 @@ do
 done
 
 echo "$SHUTDOWNMIN minutes elapsed without a connection, terminating."
-zero_service
+zero_service shutdown
