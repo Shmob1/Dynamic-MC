@@ -95,7 +95,7 @@ export class DomainStack extends Stack {
          * The value of the record is irrelevant because it will be updated
          * every time our container launches.
          */
-        values: ['192.168.1.1'],
+        values: ['0.0.0.0'],
       },
       /**
        * The low TTL is so that the DNS clients and non-authoritative DNS
