@@ -13,6 +13,7 @@ function send_notification ()
 {
   [ "$1" = "startup" ] && MESSAGETEXT="Minecraft container online"
   [ "$1" = "shutdown" ] && MESSAGETEXT="Shutting down Minecraft Server"
+  [ "$1" = "failed" ] && MESSAGETEXT="Failed to start Minecraft Server"
 
   ## Twilio Option
   [ -n "$TWILIOFROM" ] && [ -n "$TWILIOTO" ] && [ -n "$TWILIOAID" ] && [ -n "$TWILIOAUTH" ] && \
@@ -23,7 +24,15 @@ function send_notification ()
   [ -n "$SNSTOPIC" ] && \
   echo "SNS topic set, sending $1 message" && \
   aws sns publish --topic-arn "$SNSTOPIC" --message "$MESSAGETEXT"
+
+  ## Webhook Option
+  if [[${WEBHOOK_NOTIFY}]]; then 
+    curl --silent -XPOST -H 'Content-Type: application/json' -d '{"content":"'"$MESSAGETEXT"'"}' "${WEBHOOK_NOTIFY_}"
+  fi
+
 }
+
+
 
 function zero_service ()
 {
@@ -88,9 +97,10 @@ do
   netstat -aun | grep :19132 && EDITION="bedrock" && break
   sleep 1
   COUNTER=$(($COUNTER + 1))
-  if [ $COUNTER -gt 600 ] ## server has not been detected as starting within 10 minutes
+  if [ $COUNTER -gt $STARTUPMIN ] ## server has not been detected as starting within 10 minutes
   then
     echo 10 minutes elapsed without a minecraft server listening, terminating.
+    send_notification failed
     zero_service
   fi
 done
