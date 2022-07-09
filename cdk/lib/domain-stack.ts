@@ -114,6 +114,7 @@ export class DomainStack extends Stack {
       code: lambda.Code.fromAsset(path.resolve(__dirname, '../../lambda')),
       handler: 'lambda_function.lambda_handler',
       runtime: lambda.Runtime.PYTHON_3_8,
+
       environment: {
         REGION: config.serverRegion,
         CLUSTER: constants.CLUSTER_NAME,
@@ -121,6 +122,10 @@ export class DomainStack extends Stack {
         DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL as string,
       },
       logRetention: logs.RetentionDays.THREE_DAYS, // TODO: parameterize
+    });
+
+    launcherLambda.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE
     });
 
     /**
@@ -140,10 +145,10 @@ export class DomainStack extends Stack {
      * Create our log subscription filter to catch any log events containing
      * our subdomain name and send them to our launcher lambda.
      */
-    queryLogGroup.addSubscriptionFilter('SubscriptionFilter', {
-      destination: new logDestinations.LambdaDestination(launcherLambda),
-      filterPattern: logs.FilterPattern.anyTerm(subdomain),
-    });
+    //queryLogGroup.addSubscriptionFilter('SubscriptionFilter', {
+    //  destination: new logDestinations.LambdaDestination(launcherLambda),
+    //  filterPattern: logs.FilterPattern.anyTerm(subdomain),
+    //});
 
     /**
      * Add the subdomain hosted zone ID to SSM since we cannot consume a cross-stack
