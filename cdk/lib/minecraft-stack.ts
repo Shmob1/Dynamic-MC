@@ -133,13 +133,9 @@ export class MinecraftStack extends Stack {
       'ServerContainer',
       {
         containerName: constants.MC_SERVER_CONTAINER_NAME,
-        image: isDockerInstalled()
-        ? ecs.ContainerImage.fromAsset(
-            path.resolve(__dirname, '../../docker-minecraft-server/')
-          )
-        : ecs.ContainerImage.fromRegistry(
-            'shmob/docker-minecraft-server'
-          ),
+        image: ecs.ContainerImage.fromAsset(
+          path.resolve(__dirname, '../../docker-minecraft-server/')
+        ),
         portMappings: [
           {
             containerPort: minecraftServerConfig.port,
@@ -252,13 +248,9 @@ export class MinecraftStack extends Stack {
       'WatchDogContainer',
       {
         containerName: constants.WATCHDOG_SERVER_CONTAINER_NAME,
-        image: isDockerInstalled()
-          ? ecs.ContainerImage.fromAsset(
-              path.resolve(__dirname, '../../minecraft-ecsfargate-watchdog/')
-            )
-          : ecs.ContainerImage.fromRegistry(
-              'doctorray/minecraft-ecsfargate-watchdog'
-            ),
+        image: ecs.ContainerImage.fromAsset(
+          path.resolve(__dirname, '../../minecraft-ecsfargate-watchdog/')
+        ),
         essential: true,
         taskDefinition: taskDefinition,
         environment: {

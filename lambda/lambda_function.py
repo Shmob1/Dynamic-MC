@@ -21,7 +21,7 @@ def discord_post():
         raise ValueError("Missing DISCORD_WEBHOOK_URL")
     req = Request(
         DISCORD_WEBHOOK_URL,
-        json.dumps({"content": "Server requested"}).encode("utf-8"),
+        json.dumps({"content": "Dynamic-MC requested !"}).encode("utf-8"),
     )
     req.add_header("Content-Type", "application/json")
     req.add_header(

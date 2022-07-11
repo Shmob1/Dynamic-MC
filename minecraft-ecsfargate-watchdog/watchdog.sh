@@ -12,9 +12,9 @@
 
 function send_notification ()
 {
-  [ "$1" = "startup" ] && MESSAGETEXT="Minecraft Server online"
-  [ "$1" = "shutdown" ] && MESSAGETEXT="Shutting down Minecraft Server"
-  [ "$1" = "failed" ] && MESSAGETEXT="Failed to start Minecraft Server"
+  [ "$1" = "startup" ] && MESSAGETEXT="Dynamic-MC online !"
+  [ "$1" = "shutdown" ] && MESSAGETEXT="Dynamic-MC offline"
+  [ "$1" = "failed" ] && MESSAGETEXT="Dynamic-MC failed :("
 
   ## Twilio Option
   [ -n "$TWILIOFROM" ] && [ -n "$TWILIOTO" ] && [ -n "$TWILIOAID" ] && [ -n "$TWILIOAUTH" ] && \
@@ -62,7 +62,7 @@ aws route53 change-resource-record-sets --hosted-zone-id $DNSZONE --change-batch
 
 function zero_service ()
 {
-  update_dns 0.0.0.0
+  update_dns "0.0.0.0"
   send_notification $1
   echo Setting desired task count to zero.
   aws ecs update-service --cluster $CLUSTER --service $SERVICE --desired-count 0
