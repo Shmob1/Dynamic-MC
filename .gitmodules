@@ -1,0 +1,3 @@
+[submodule "docker-minecraft-server"]
+	path = docker-minecraft-server
+	url = git@github.com:Shmob1/docker-minecraft-server.git

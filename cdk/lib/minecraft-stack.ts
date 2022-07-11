@@ -17,6 +17,7 @@ import { constants } from './constants';
 import { SSMParameterReader } from './ssm-parameter-reader';
 import { StackConfig } from './types';
 import { getMinecraftServerConfig, isDockerInstalled } from './util';
+import { Protocol } from 'aws-cdk-lib/aws-ecs';
 
 interface MinecraftStackProps extends StackProps {
   config: Readonly<StackConfig>;
@@ -79,6 +80,18 @@ export class MinecraftStack extends Stack {
       description: 'Minecraft ECS task role',
     });
 
+    ecsTaskRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      resources: ['*'],
+      actions: [
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel"
+    ]
+    })
+  );
+
     efsReadWriteDataPolicy.attachToRole(ecsTaskRole);
 
     const cluster = new ecs.Cluster(this, 'Cluster', {
@@ -120,12 +133,23 @@ export class MinecraftStack extends Stack {
       'ServerContainer',
       {
         containerName: constants.MC_SERVER_CONTAINER_NAME,
-        image: ecs.ContainerImage.fromRegistry(minecraftServerConfig.image),
+        image: isDockerInstalled()
+        ? ecs.ContainerImage.fromAsset(
+            path.resolve(__dirname, '../../docker-minecraft-server/')
+          )
+        : ecs.ContainerImage.fromRegistry(
+            'shmob/docker-minecraft-server'
+          ),
         portMappings: [
           {
             containerPort: minecraftServerConfig.port,
             hostPort: minecraftServerConfig.port,
             protocol: minecraftServerConfig.protocol,
+          },
+          {
+            containerPort: 24454,
+            hostPort: 24454,
+            protocol: Protocol.UDP,
           },
         ],
         environment: config.minecraftImageEnv,
@@ -159,6 +183,10 @@ export class MinecraftStack extends Stack {
       ec2.Peer.anyIpv4(),
       minecraftServerConfig.ingressRulePort
     );
+    serviceSecurityGroup.addIngressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.udp(24454),
+    );
 
     const minecraftServerService = new ecs.FargateService(
       this,
@@ -180,6 +208,7 @@ export class MinecraftStack extends Stack {
         desiredCount: 0,
         assignPublicIp: true,
         securityGroups: [serviceSecurityGroup],
+        enableExecuteCommand: true
       }
     );
 
@@ -244,6 +273,7 @@ export class MinecraftStack extends Stack {
           TWILIOAUTH: config.twilio.authCode,
           STARTUPMIN: config.startupMinutes,
           SHUTDOWNMIN: config.shutdownMinutes,
+          WEBHOOKURL: config.webhookUrl,
         },
         logging: config.debug
           ? new ecs.AwsLogDriver({

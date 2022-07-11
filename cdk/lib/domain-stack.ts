@@ -16,8 +16,9 @@ import {
 import { Construct } from 'constructs';
 import { constants } from './constants';
 import { CWGlobalResourcePolicy } from './cw-global-resource-policy';
-import { RetentionDays } from 'aws-cdk-lib/lib/aws-logs';
+import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { StackConfig } from './types';
+import { AuthType } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 
 interface DomainStackProps extends StackProps {
   config: Readonly<StackConfig>;
@@ -94,7 +95,7 @@ export class DomainStack extends Stack {
          * The value of the record is irrelevant because it will be updated
          * every time our container launches.
          */
-        values: ['192.168.1.1'],
+        values: ['0.0.0.0'],
       },
       /**
        * The low TTL is so that the DNS clients and non-authoritative DNS
@@ -113,12 +114,18 @@ export class DomainStack extends Stack {
       code: lambda.Code.fromAsset(path.resolve(__dirname, '../../lambda')),
       handler: 'lambda_function.lambda_handler',
       runtime: lambda.Runtime.PYTHON_3_8,
+
       environment: {
         REGION: config.serverRegion,
         CLUSTER: constants.CLUSTER_NAME,
         SERVICE: constants.SERVICE_NAME,
+        DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL as string,
       },
       logRetention: logs.RetentionDays.THREE_DAYS, // TODO: parameterize
+    });
+
+    launcherLambda.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE
     });
 
     /**
@@ -138,10 +145,10 @@ export class DomainStack extends Stack {
      * Create our log subscription filter to catch any log events containing
      * our subdomain name and send them to our launcher lambda.
      */
-    queryLogGroup.addSubscriptionFilter('SubscriptionFilter', {
-      destination: new logDestinations.LambdaDestination(launcherLambda),
-      filterPattern: logs.FilterPattern.anyTerm(subdomain),
-    });
+    //queryLogGroup.addSubscriptionFilter('SubscriptionFilter', {
+    //  destination: new logDestinations.LambdaDestination(launcherLambda),
+    //  filterPattern: logs.FilterPattern.anyTerm(subdomain),
+    //});
 
     /**
      * Add the subdomain hosted zone ID to SSM since we cannot consume a cross-stack

@@ -22,8 +22,9 @@ Almost free serverless on-demand Minecraft server in AWS
   - [Elastic Container Service](#elastic-container-service)
   - [CloudWatch](#cloudwatch)
 - [Usage and Customization](#usage-and-customization)
-  - [Option 1: Mount EFS Directly](#option-1-mount-efs-directly)
-  - [Option 2: DataSync and S3](#option-2-datasync-and-s3)
+  - [Option 1: ECS Exec](#option-1-ecs-exec)
+  - [Option 2: Mount EFS Directly](#option-2-mount-efs-directly)
+  - [Option 3: DataSync and S3](#option-3-datasync-and-s3)
 - [Testing and Troubleshooting](#testing-and-troubleshooting)
 - [Other Stuff](#other-stuff)
 
@@ -465,11 +466,73 @@ Launch your server the first time by visiting your server name in a web browser,
 
 To use your new server, open Minecraft Multiplayer, add your new server, and join. It will fail at first if the server is not started, but then everything comes online and you can join your new world! You may notice that you don't have many permissions or ability to customize a lot of things yet, so let's dig into how to edit the relevant files!
 
-## Option 1: Mount EFS Directly
+## Option 1: ECS Exec
 
-This option is the easiest for folks that are comfortable in the Linux command line, so I'm not going to step-by-step it. But basically, launch an AWS Linux v2 AMI in EC2 with bare-minimum specs, log into it, mount the EFS Access Point, and use your favorite command line text editor to change around server.properties, the ops.json, whitelists, whatever, and then re-launch your server with the new configuration.
+This option is technically the easiest as it doesn't require any additional software installed, but it does require the use of the Linux command line, and must be done while the containers are running.  It involves leveraging Amazon's [ECS Exec] feature to open an interactive shell in your running ECS Fargate task, which can be done with the [CloudShell] interface on the AWS Console.
 
-## Option 2: DataSync and S3
+### One Time Setup
+
+#### Enabling ECS Exec
+
+To start, open CloudShell, and the first time you do this you must enable exec permissions on your ECS service, which was not an option when we created it.  If you used the CDK deployment method, it already is enabled.  From the command shell run this command, replacing the cluster and service name if necessary:
+```
+aws ecs update-service --cluster minecraft --service minecraft-server --enable-execute-command
+```
+
+#### ECS Exec IAM Policy
+To allow communication with the container, we need to add one more IAM policy to the ECS Task Role we created earlier.  We can call this policy `ecs.exec`:
+```
+{
+   "Version": "2012-10-17",
+   "Statement": [
+       {
+       "Effect": "Allow",
+       "Action": [
+            "ssmmessages:CreateControlChannel",
+            "ssmmessages:CreateDataChannel",
+            "ssmmessages:OpenControlChannel",
+            "ssmmessages:OpenDataChannel"
+       ],
+      "Resource": "*"
+      }
+   ]
+}
+```
+
+After creation, add it to the `ecs.task.minecraft-server` role.
+
+### Connecting to the Task and editing files
+
+In order to gain access to the containers from CloudShell, run this command, substituting in the region in which your ECS service is running and the current `minecraft` task ID:
+
+```
+aws ecs execute-command  \
+    --cluster minecraft \
+    --container minecraft-server \
+    --command "/bin/bash" \
+    --interactive \
+    --region <YOUR AWS REGION> \
+    --task <YOUR TASK ID>
+```
+
+This will give you access to an interactive shell inside of the running `minecraft-server` container. If you `ls`, you will see familiar files such as `server.properties`. However, this container will not have any command-line text editors installed by default, so you will need to install one yourself. To install `nano`, you can use the following commands:
+
+```
+apt-get update
+apt-get install nano
+```
+
+Remember, you'll have to do this part every time.
+
+Here's a quick guide to editing a file with [nano](#nano) -- or alternately you can install `vim` if you're out of your mind.
+
+Once you have edited and saved any files you wish to edit, simply run `exit` to close this interactive remote shell.  Within the running Minecraft server, an op user can type `/reload` to read the new settings, or just wait for the next restart.
+
+## Option 2: Mount EFS Directly
+
+This is the next easiest option for folks that are comfortable in the Linux command line. Basically, launch an AWS Linux v2 AMI in EC2 with bare-minimum specs, log into it, mount the EFS Access Point, and use your favorite command line text editor to change around server.properties, the ops.json, whitelists, whatever, and then re-launch your server with the new configuration.
+
+## Option 3: DataSync and S3
 
 Since EFS doesn't have a convenient way to access the files outside of mounting a share to something within the VPC, we can utilize AWS DataSync to copy files in and out to a more convenient location. These instructions will use S3 as there are countless S3 clients out there you can manage files, including the AWS Console itself.
 
@@ -621,3 +684,7 @@ Open an issue, fork the repo, send me a pull request or a message.
 [billing alert]: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/monitor_estimated_charges_with_cloudwatch.html
 [s3 browser]: https://s3browser.com
 [twilio]: https://twilio.com
+[nano]: https://www.google.com/search?q=quick+guide+to+editing+with+nano&oq=quick+guide+to+editing+with+nano
+[ecs exec]: https://aws.amazon.com/blogs/containers/new-using-amazon-ecs-exec-access-your-containers-fargate-ec2/
+[cloudshell]: https://docs.aws.amazon.com/cloudshell/latest/userguide/welcome.html
+
